@@ -36,7 +36,7 @@ void print_ascii(const Source& src) {
 }
 int main(int argc, char** argv) {
     if (argc > 1) {       // at least 1 param
-        float scale = 1;  // scale of SVG
+        float scale = 1;  // scale of image
         if (argc > 2) {   // 2nd arg is scale percentage
             int pct = atoi(argv[2]);
             if (pct > 0 && pct <= 1000) {
@@ -78,7 +78,9 @@ int main(int argc, char** argv) {
             if (jpg || png) {
                 int result = 1;
                 size16 dim;
-                if (gfx_result::success == (jpg ? jpeg_image::dimensions(&fs, &dim) : png_image::dimensions(&fs, &dim))) {
+                if (gfx_result::success == 
+                        (jpg ? jpeg_image::dimensions(&fs, &dim) 
+                            : png_image::dimensions(&fs, &dim))) {
                     fs.seek(0);
                     auto bmp_original = create_bitmap<gsc_pixel<4>>(
                         {uint16_t(dim.width),
@@ -88,7 +90,7 @@ int main(int argc, char** argv) {
                         draw::image(bmp_original, bmp_original.bounds(), &fs);
                         fs.close();
                         if (scale != 1) {
-                            // create a bitmap the size of our final scaled JPG
+                            // create a bitmap the size of our final scaled image
                             auto bmp = create_bitmap<gsc_pixel<4>>(
                                 {uint16_t(dim.width * scale),
                                  uint16_t(dim.height * scale)});
@@ -98,9 +100,17 @@ int main(int argc, char** argv) {
                                 bmp.clear(bmp.bounds());
                                 // draw the SVG
                                 if (scale < 1) {
-                                    draw::bitmap(bmp, bmp.bounds(), bmp_original, bmp_original.bounds(), bitmap_resize::resize_bicubic);
+                                    draw::bitmap(bmp, 
+                                                bmp.bounds(), 
+                                                bmp_original, 
+                                                bmp_original.bounds(), 
+                                                bitmap_resize::resize_bicubic);
                                 } else {
-                                    draw::bitmap(bmp, bmp.bounds(), bmp_original, bmp_original.bounds(), bitmap_resize::resize_bilinear);
+                                    draw::bitmap(bmp, 
+                                                bmp.bounds(), 
+                                                bmp_original, 
+                                                bmp_original.bounds(), 
+                                                bitmap_resize::resize_bilinear);
                                 }
                                 result = 0;
                                 // dump as ascii
