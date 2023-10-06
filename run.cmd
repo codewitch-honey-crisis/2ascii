@@ -1,0 +1,1 @@
+.\build\Debug\testbed.exe "doc.svg" 100
