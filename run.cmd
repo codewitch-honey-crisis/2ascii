@@ -1,1 +1,1 @@
-.\build\Debug\testbed.exe "doc.svg" 100
+.\build\Debug\2ascii.exe "nz.svg" 100
