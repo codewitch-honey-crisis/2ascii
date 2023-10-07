@@ -78,57 +78,69 @@ int main(int argc, char** argv) {
             if (jpg || png) {
                 int result = 1;
                 size16 dim;
-                if (gfx_result::success == 
-                        (jpg ? jpeg_image::dimensions(&fs, &dim) 
-                            : png_image::dimensions(&fs, &dim))) {
+                gfx_result r = (jpg ? jpeg_image::dimensions(&fs, &dim)
+                                    : png_image::dimensions(&fs, &dim));
+                if (gfx_result::success == r) {
                     fs.seek(0);
                     auto bmp_original = create_bitmap<gsc_pixel<4>>(
                         {uint16_t(dim.width),
                          uint16_t(dim.height)});
                     if (bmp_original.begin()) {
                         bmp_original.clear(bmp_original.bounds());
-                        draw::image(bmp_original, bmp_original.bounds(), &fs);
-                        fs.close();
-                        if (scale != 1) {
-                            // create a bitmap the size of our final scaled image
-                            auto bmp = create_bitmap<gsc_pixel<4>>(
-                                {uint16_t(dim.width * scale),
-                                 uint16_t(dim.height * scale)});
-                            // if not out of mem allocating bitmap
-                            if (bmp.begin()) {
-                                // clear it
-                                bmp.clear(bmp.bounds());
-                                // draw the SVG
-                                if (scale < 1) {
-                                    draw::bitmap(bmp, 
-                                                bmp.bounds(), 
-                                                bmp_original, 
-                                                bmp_original.bounds(), 
-                                                bitmap_resize::resize_bicubic);
+                        r=draw::image(bmp_original, bmp_original.bounds(), &fs);
+                        if(gfx_result::success==r) {
+                            fs.close();
+                            if (scale != 1) {
+                                // create a bitmap the size of our final scaled image
+                                auto bmp = create_bitmap<gsc_pixel<4>>(
+                                    {uint16_t(dim.width * scale),
+                                    uint16_t(dim.height * scale)});
+                                // if not out of mem allocating bitmap
+                                if (bmp.begin()) {
+                                    // clear it
+                                    bmp.clear(bmp.bounds());
+                                    // draw the SVG
+                                    if (scale < 1) {
+                                        draw::bitmap(bmp, 
+                                                    bmp.bounds(), 
+                                                    bmp_original, 
+                                                    bmp_original.bounds(), 
+                                                    bitmap_resize::resize_bicubic);
+                                    } else {
+                                        draw::bitmap(bmp, 
+                                                    bmp.bounds(), 
+                                                    bmp_original, 
+                                                    bmp_original.bounds(), 
+                                                    bitmap_resize::resize_bilinear);
+                                    }
+                                    result = 0;
+                                    // dump as ascii
+                                    print_ascii(bmp);
+                                    // free the bmp
+                                    free(bmp.begin());
                                 } else {
-                                    draw::bitmap(bmp, 
-                                                bmp.bounds(), 
-                                                bmp_original, 
-                                                bmp_original.bounds(), 
-                                                bitmap_resize::resize_bilinear);
+                                    fprintf(stderr, "Out of memory creating final bitmap\r\n", (int)r);
                                 }
+                            } else {
                                 result = 0;
                                 // dump as ascii
-                                print_ascii(bmp);
-                                // free the bmp
-                                free(bmp.begin());
+                                print_ascii(bmp_original);
                             }
                         } else {
-                            result = 0;
-                            // dump as ascii
-                            print_ascii(bmp_original);
+                            fprintf(stderr, "Error drawing image. Error: %d\r\n", (int)r);
                         }
                         free(bmp_original.begin());
                         return result;
+                    } else {
+                        fprintf(stderr, "Out of memory creating image bitmap\r\n");
                     }
+                } else {
+                    fprintf(stderr,"Unable to get image dimensions: Error %d\r\n",(int)r);
                 }
             }
         }
+    } else {
+        fprintf(stderr, "Not enough arguments\r\n");
     }
     return 1;
 }
