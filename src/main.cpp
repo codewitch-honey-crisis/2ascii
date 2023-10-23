@@ -113,6 +113,7 @@ int main(int argc, char **argv) {
                     draw::text(bmp,bmp.bounds(),oti,color<gsc_pixel<4>>::white);
                     // dump as ascii
                     print_ascii(bmp);
+                    free(bmp.begin());
                     return 0;
                 } 
                 fprintf(stderr, "Out of memory creating bitmap\r\n");
