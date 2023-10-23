@@ -1,5 +1,5 @@
 // renders a Scalable Vector Graphic (SVG)
-// a JPG or a PNG
+// a JPG or a PNG or text
 // as an ASCII image
 // takes a filename and an optional
 // numeric percentage for scaling
