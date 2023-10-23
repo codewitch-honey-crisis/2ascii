@@ -1,1 +1,1 @@
-.\build\Debug\2ascii.exe "nz.svg" 100
+.\build\Debug\2ascii.exe ArchitectsDaughter.ttf 25 "Hello!"

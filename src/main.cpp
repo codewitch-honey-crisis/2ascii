@@ -34,7 +34,23 @@ void print_ascii(const Source& src) {
         putchar('\n');
     }
 }
-int main(int argc, char** argv) {
+static unsigned char to_lower_u(unsigned char ch) {
+    if (ch >= 'A' && ch <= 'Z')
+        ch = 'a' + (ch - 'A');
+    return ch;
+}
+// from Zohar81 @ https://stackoverflow.com/questions/5820810/case-insensitive-string-comparison-in-c
+static int strcmp_i(const char *s1, const char *s2) {
+    const unsigned char *us1 = (const unsigned char *)s1,
+                        *us2 = (const unsigned char *)s2;
+
+    while (to_lower_u(*us1) == to_lower_u(*us2++))
+        if (*us1++ == '\0')
+            return (0);
+    return (to_lower_u(*us1) - to_lower_u(*--us2));
+}
+
+int main(int argc, char **argv) {
     if (argc > 1) {       // at least 1 param
         float scale = 1;  // scale of image
         if (argc > 2) {   // 2nd arg is scale percentage
@@ -49,7 +65,7 @@ int main(int argc, char** argv) {
         bool png = false;
         bool jpg = false;
         if (arglen > 4) {
-            if (0 == stricmp(argv[1] + arglen - 4, ".svg")) {
+            if (0 == strcmp_i(argv[1] + arglen - 4, ".svg")) {
                 svg_doc doc;
                 // read it
                 svg_doc::read(&fs, &doc);
@@ -70,10 +86,37 @@ int main(int argc, char** argv) {
                     free(bmp.begin());
                 }
                 return 0;
-            } else if (0 == stricmp(argv[1] + arglen - 4, ".jpg")) {
+            } else if (0 == strcmp_i(argv[1] + arglen - 4, ".jpg")) {
                 jpg = true;
-            } else if (0 == stricmp(argv[1] + arglen - 4, ".png")) {
+            } else if (0 == strcmp_i(argv[1] + arglen - 4, ".png")) {
                 png = true;
+            } else if (0 == strcmp_i(argv[1] + arglen - 4, ".ttf") || 0 == strcmp_i(argv[1] + arglen - 4, ".otf")) {
+                if(argc<4) {
+                    fprintf(stderr, "Not enough arguments\r\n");
+                    return 1;
+                }
+                float lh = scale*100.0f;
+                file_stream fs(argv[1]);
+                open_font fnt;
+                if(gfx_result::success!=open_font::open(&fs,&fnt)) {
+                    fprintf(stderr, "I/O error or unsupported format\r\n");
+                    return 1;
+                }
+                open_text_info oti;
+                oti.font = &fnt;
+                oti.scale = oti.font->scale(lh);
+                oti.text = argv[3];
+                srect16 text_rect = oti.font->measure_text(ssize16::max(),spoint16::zero(),oti.text,oti.scale,oti.scaled_tab_width,oti.encoding).bounds();
+                auto bmp = create_bitmap<gsc_pixel<4>>((size16)text_rect.dimensions());
+                if(bmp.begin()) {
+                    bmp.clear(bmp.bounds());
+                    draw::text(bmp,bmp.bounds(),oti,color<gsc_pixel<4>>::white);
+                    // dump as ascii
+                    print_ascii(bmp);
+                    return 0;
+                } 
+                fprintf(stderr, "Out of memory creating bitmap\r\n");
+                return 1;
             }
             if (jpg || png) {
                 int result = 1;
@@ -84,34 +127,34 @@ int main(int argc, char** argv) {
                     fs.seek(0);
                     auto bmp_original = create_bitmap<gsc_pixel<4>>(
                         {uint16_t(dim.width),
-                         uint16_t(dim.height)});
+                            uint16_t(dim.height)});
                     if (bmp_original.begin()) {
                         bmp_original.clear(bmp_original.bounds());
-                        r=draw::image(bmp_original, bmp_original.bounds(), &fs);
-                        if(gfx_result::success==r) {
+                        r = draw::image(bmp_original, bmp_original.bounds(), &fs);
+                        if (gfx_result::success == r) {
                             fs.close();
                             if (scale != 1) {
                                 // create a bitmap the size of our final scaled image
                                 auto bmp = create_bitmap<gsc_pixel<4>>(
                                     {uint16_t(dim.width * scale),
-                                    uint16_t(dim.height * scale)});
+                                        uint16_t(dim.height * scale)});
                                 // if not out of mem allocating bitmap
                                 if (bmp.begin()) {
                                     // clear it
                                     bmp.clear(bmp.bounds());
                                     // draw the SVG
                                     if (scale < 1) {
-                                        draw::bitmap(bmp, 
-                                                    bmp.bounds(), 
-                                                    bmp_original, 
-                                                    bmp_original.bounds(), 
-                                                    bitmap_resize::resize_bicubic);
+                                        draw::bitmap(bmp,
+                                                        bmp.bounds(),
+                                                        bmp_original,
+                                                        bmp_original.bounds(),
+                                                        bitmap_resize::resize_bicubic);
                                     } else {
-                                        draw::bitmap(bmp, 
-                                                    bmp.bounds(), 
-                                                    bmp_original, 
-                                                    bmp_original.bounds(), 
-                                                    bitmap_resize::resize_bilinear);
+                                        draw::bitmap(bmp,
+                                                        bmp.bounds(),
+                                                        bmp_original,
+                                                        bmp_original.bounds(),
+                                                        bitmap_resize::resize_bilinear);
                                     }
                                     result = 0;
                                     // dump as ascii
@@ -135,7 +178,7 @@ int main(int argc, char** argv) {
                         fprintf(stderr, "Out of memory creating image bitmap\r\n");
                     }
                 } else {
-                    fprintf(stderr,"Unable to get image dimensions: Error %d\r\n",(int)r);
+                    fprintf(stderr, "Unable to get image dimensions: Error %d\r\n", (int)r);
                 }
             }
         }
