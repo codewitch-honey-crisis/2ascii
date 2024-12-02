@@ -6,11 +6,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_STATIC_LIBRARY_PREFIX "")
 set(CMAKE_SHARED_LIBRARY_PREFIX "")
 
-add_subdirectory(lib/htcw_bits)
-add_subdirectory(lib/htcw_io)
-add_subdirectory(lib/htcw_ml)
-add_subdirectory(lib/htcw_data)
-add_subdirectory(lib/htcw_gfx)
+
+include(FetchContent)
+FetchContent_Declare(htcw_uix
+    GIT_REPOSITORY https://github.com/codewitch-honey-crisis/uix.git
+    GIT_TAG 1.2.0
+    GIT_SHALLOW ON
+    FIND_PACKAGE_ARGS 1.2.0
+)
+FetchContent_MakeAvailable(htcw_uix)
 
 add_executable(2ascii 
     src/main.cpp
