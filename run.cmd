@@ -1,1 +1,1 @@
-.\build\MinSizeRel\2ascii.exe ArchitectsDaughter.ttf 25 "Hello!"
+.\build\MinSizeRel\2ascii.exe teams.png

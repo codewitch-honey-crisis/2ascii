@@ -66,24 +66,39 @@ int main(int argc, char **argv) {
         bool jpg = false;
         if (arglen > 4) {
             if (0 == strcmp_i(argv[1] + arglen - 4, ".svg")) {
-                svg_doc doc;
-                // read it
-                svg_doc::read(&fs, &doc);
-                fs.close();
+                sizef dim;
+                if(gfx_result::success!=canvas::svg_dimensions(fs,&dim)) {
+                    fputs("Unable to read SVG",stderr);
+                    fs.close();
+                    return 1;
+                }
+                fs.seek(0);
+                canvas cvs(size16(ceilf(dim.width),ceilf(dim.height)));
+                
                 // create a bitmap the size of our final scaled SVG
                 auto bmp = create_bitmap<gsc_pixel<4>>(
-                    {uint16_t(doc.dimensions().width * scale),
-                     uint16_t(doc.dimensions().height * scale)});
+                    {uint16_t(cvs.dimensions().width * scale),
+                     uint16_t(cvs.dimensions().height * scale)});
                 // if not out of mem allocating bitmap
-                if (bmp.begin()) {
+                if (gfx_result::success==cvs.initialize() && bmp.begin()) {
                     // clear it
                     bmp.clear(bmp.bounds());
+                    // bind the canvas to it
+                    draw::canvas(bmp,cvs,point16::zero());
+                    matrix m=matrix::create_fit_to(dim,(rectf)bmp.bounds());
                     // draw the SVG
-                    draw::svg(bmp, bmp.bounds(), doc, scale);
-                    // dump as ascii
-                    print_ascii(bmp);
+                    if(gfx_result::success==cvs.render_svg(fs,m)) {
+                        // dump as ascii
+                        print_ascii(bmp);
+                    } else {
+                        fputs("Error reading SVG",stderr);
+                    }
                     // free the bmp
                     free(bmp.begin());
+                    fs.close();
+                
+                } else { 
+                    fs.close();
                 }
                 return 0;
             } else if (0 == strcmp_i(argv[1] + arglen - 4, ".jpg")) {
@@ -92,22 +107,23 @@ int main(int argc, char **argv) {
                 png = true;
             } else if (0 == strcmp_i(argv[1] + arglen - 4, ".ttf") || 0 == strcmp_i(argv[1] + arglen - 4, ".otf")) {
                 if(argc<4) {
-                    fprintf(stderr, "Not enough arguments\r\n");
+                    fputs("Not enough arguments",stderr);
                     return 1;
                 }
                 float lh = scale*100.0f;
                 file_stream fs(argv[1]);
-                open_font fnt;
-                if(gfx_result::success!=open_font::open(&fs,&fnt)) {
-                    fprintf(stderr, "I/O error or unsupported format\r\n");
-                    return 1;
+                tt_font text_font(fs,lh,font_size_units::px);
+                if(gfx_result::success!=text_font.initialize()) {
+                    fputs("Error reading font",stderr);
                 }
-                open_text_info oti;
-                oti.font = &fnt;
-                oti.scale = oti.font->scale(lh);
-                oti.text = argv[3];
-                srect16 text_rect = oti.font->measure_text(ssize16::max(),spoint16::zero(),oti.text,oti.scale,oti.scaled_tab_width,oti.encoding).bounds();
-                auto bmp = create_bitmap<gsc_pixel<4>>((size16)text_rect.dimensions());
+                text_info oti;
+                oti.text_font = &text_font;
+                oti.encoding = &text_encoding::utf8;
+                oti.text_sz(argv[3]);
+                size16 txtsz;
+                oti.text_font->measure(-1,oti,&txtsz);
+                rect16 text_rect = txtsz.bounds();
+                auto bmp = create_bitmap<gsc_pixel<4>>(text_rect.dimensions());
                 if(bmp.begin()) {
                     bmp.clear(bmp.bounds());
                     draw::text(bmp,bmp.bounds(),oti,color<gsc_pixel<4>>::white);
@@ -122,16 +138,26 @@ int main(int argc, char **argv) {
             if (jpg || png) {
                 int result = 1;
                 size16 dim;
-                gfx_result r = (jpg ? jpeg_image::dimensions(&fs, &dim)
-                                    : png_image::dimensions(&fs, &dim));
+                image* img = nullptr;
+                jpg_image jimg;
+                png_image pimg;
+                if(jpg) {
+                    jimg=jpg_image(fs);
+                    img=&jimg;
+                } else {
+                    pimg=png_image(fs);
+                    img=&pimg;
+                }
+                gfx_result r = img->initialize();
                 if (gfx_result::success == r) {
+                    dim = img->dimensions();
                     fs.seek(0);
                     auto bmp_original = create_bitmap<gsc_pixel<4>>(
                         {uint16_t(dim.width),
                             uint16_t(dim.height)});
                     if (bmp_original.begin()) {
                         bmp_original.clear(bmp_original.bounds());
-                        r = draw::image(bmp_original, bmp_original.bounds(), &fs);
+                        r = draw::image(bmp_original, bmp_original.bounds(), *img);
                         if (gfx_result::success == r) {
                             fs.close();
                             if (scale != 1) {
